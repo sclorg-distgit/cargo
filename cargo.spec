@@ -17,7 +17,7 @@
 
 Name:           %{?scl_prefix}cargo
 Version:        0.19.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Rust's package manager and build tool
 License:        ASL 2.0 or MIT
 URL:            https://crates.io/
@@ -80,6 +80,7 @@ BuildRequires:  %{?scl_prefix}rust
 BuildRequires:  make
 BuildRequires:  cmake
 BuildRequires:  gcc
+BuildRequires:  git
 
 %ifarch %{bootstrap_arches}
 %global bootstrap_root cargo-%{cargo_bootstrap}-%{rust_triple}
@@ -177,7 +178,12 @@ make %{_smp_mflags}
 export CARGO_HOME="%{cargo_home}"
 export RUSTFLAGS="%{rustflags}"
 
+%{?scl:scl enable %scl - << \EOF}
+set -ex
+
 %make_install
+
+%{?scl:EOF}
 
 # Remove installer artifacts (manifests, uninstall scripts, etc.)
 rm -rv %{buildroot}/%{_prefix}/lib/
@@ -193,9 +199,14 @@ rm -rf %{buildroot}/%{_docdir}/%{pkg_name}/
 export CARGO_HOME="%{cargo_home}"
 export RUSTFLAGS="%{rustflags}"
 
+%{?scl:scl enable %scl - << \EOF}
+set -ex
+
 # the testsuite run in parallel itself
 # some tests are known to fail exact output due to libgit2 differences
 make test || :
+
+%{?scl:EOF}
 
 
 %files
@@ -208,6 +219,9 @@ make test || :
 
 
 %changelog
+* Mon Jun 19 2017 Josh Stone <jistone@redhat.com> - 0.19.0-2
+- Use the scl for install and check.
+
 * Wed Jun 14 2017 Josh Stone <jistone@redhat.com> - 0.19.0-1
 - Update to 0.19.0.
 
