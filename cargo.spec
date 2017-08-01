@@ -7,7 +7,7 @@
 %global rust_arches x86_64 i686 aarch64 ppc64 ppc64le s390x
 
 # Only the specified arches will use bootstrap binaries.
-%global bootstrap_arches %%{rust_arches}
+#global bootstrap_arches %%{rust_arches}
 
 %if 0%{?rhel}
 %bcond_without bundled_libgit2
@@ -17,7 +17,7 @@
 
 Name:           %{?scl_prefix}cargo
 Version:        0.18.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Rust's package manager and build tool
 License:        ASL 2.0 or MIT
 URL:            https://crates.io/
@@ -201,5 +201,8 @@ rm -rf %{buildroot}/%{_docdir}/%{pkg_name}/
 
 
 %changelog
+* Fri Jun 02 2017 Josh Stone <jistone@redhat.com> - 0.18.0-2
+- Rebuild without bootstrap binaries.
+
 * Fri Jun 02 2017 Josh Stone <jistone@redhat.com> - 0.18.0-1
 - Bootstrap with the new SCL name.
