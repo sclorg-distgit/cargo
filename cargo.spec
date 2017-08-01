@@ -16,16 +16,14 @@
 %endif
 
 Name:           %{?scl_prefix}cargo
-Version:        0.18.0
-Release:        2%{?dist}
+Version:        0.19.0
+Release:        1%{?dist}
 Summary:        Rust's package manager and build tool
 License:        ASL 2.0 or MIT
 URL:            https://crates.io/
 ExclusiveArch:  %{rust_arches}
 
-# TEMP: using the current version to bootstrap rust-toolset
 %global cargo_version %{version}
-#global cargo_bootstrap 0.17.0
 %global cargo_bootstrap 0.18.0
 
 Source0:        https://github.com/rust-lang/%{pkg_name}/archive/%{cargo_version}/%{pkg_name}-%{cargo_version}.tar.gz
@@ -72,7 +70,7 @@ end}
 %endif
 
 # Use vendored crate dependencies so we can build offline.
-# Created using https://github.com/alexcrichton/cargo-vendor/ 0.1.3
+# Created using https://github.com/alexcrichton/cargo-vendor/ 0.1.7
 # It's so big because some of the -sys crates include the C library source they
 # want to link to.  With our -devel buildreqs in place, they'll be used instead.
 # FIXME: These should all eventually be packaged on their own!
@@ -99,7 +97,7 @@ BuildRequires:  zlib-devel
 BuildRequires:  pkgconfig
 
 %if %with bundled_libgit2
-Provides:       bundled(libgit2) = 0.24.0
+Provides:       bundled(libgit2) = 0.25.0
 %else
 BuildRequires:  libgit2-devel >= 0.24
 %endif
@@ -132,7 +130,9 @@ test -f '%{local_cargo}'
 rmdir src/rust-installer
 mv rust-installer-%{rust_installer} src/rust-installer
 
-mkdir -p .cargo
+# define the offline registry
+%global cargo_home $PWD/.cargo
+mkdir -p %{cargo_home}
 cat >.cargo/config <<EOF
 [source.crates-io]
 registry = 'https://github.com/rust-lang/crates.io-index'
@@ -142,6 +142,9 @@ replace-with = 'vendored-sources'
 directory = '$PWD/../%{pkg_name}-%{version}-vendor'
 EOF
 
+# This should eventually migrate to distro policy
+# Enable optimization, debuginfo, and link hardening.
+%global rustflags -Copt-level=3 -Cdebuginfo=2 -Clink-arg=-Wl,-z,relro,-z,now
 
 %build
 
@@ -150,13 +153,9 @@ EOF
 export LIBGIT2_SYS_USE_PKG_CONFIG=1
 %endif
 
-# use our offline registry
-mkdir -p .cargo
-export CARGO_HOME=$PWD/.cargo
-
-# This should eventually migrate to distro policy
-# Enable optimization, debuginfo, and link hardening.
-export RUSTFLAGS="-C opt-level=3 -g -Clink-arg=-Wl,-z,relro,-z,now"
+# use our offline registry and custom rustc flags
+export CARGO_HOME="%{cargo_home}"
+export RUSTFLAGS="%{rustflags}"
 
 %{?scl:scl enable %scl - << \EOF}
 set -ex
@@ -166,14 +165,18 @@ set -ex
   --rustc=%{_bindir}/rustc --rustdoc=%{_bindir}/rustdoc \
   --cargo=%{local_cargo} \
   --release-channel=stable \
+  --disable-cross-tests \
   %{nil}
 
-%make_build %{!?rhel:-Onone}
+make %{_smp_mflags}
 
 %{?scl:EOF}
 
 
 %install
+export CARGO_HOME="%{cargo_home}"
+export RUSTFLAGS="%{rustflags}"
+
 %make_install
 
 # Remove installer artifacts (manifests, uninstall scripts, etc.)
@@ -187,8 +190,12 @@ rm -rf %{buildroot}/%{_docdir}/%{pkg_name}/
 
 
 %check
-# the tests are more oriented toward in-tree contributors
-#make test
+export CARGO_HOME="%{cargo_home}"
+export RUSTFLAGS="%{rustflags}"
+
+# the testsuite run in parallel itself
+# some tests are known to fail exact output due to libgit2 differences
+make test || :
 
 
 %files
@@ -201,6 +208,9 @@ rm -rf %{buildroot}/%{_docdir}/%{pkg_name}/
 
 
 %changelog
+* Wed Jun 14 2017 Josh Stone <jistone@redhat.com> - 0.19.0-1
+- Update to 0.19.0.
+
 * Fri Jun 02 2017 Josh Stone <jistone@redhat.com> - 0.18.0-2
 - Rebuild without bootstrap binaries.
 
