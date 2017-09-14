@@ -16,7 +16,7 @@
 %endif
 
 Name:           %{?scl_prefix}cargo
-Version:        0.21.0
+Version:        0.21.1
 Release:        1%{?dist}
 Summary:        Rust's package manager and build tool
 License:        ASL 2.0 or MIT
@@ -28,7 +28,7 @@ ExclusiveArch:  %{rust_arches}
 
 Source0:        https://github.com/rust-lang/%{pkg_name}/archive/%{cargo_version}/%{pkg_name}-%{cargo_version}.tar.gz
 
-Patch1:         cargo-0.21.0-libc-0.2.26-s390x.patch
+Patch1:         cargo-0.21.1-libc-0.2.26-s390x.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -68,7 +68,7 @@ end}
 %endif
 
 # Use vendored crate dependencies so we can build offline.
-# Created using https://github.com/alexcrichton/cargo-vendor/ 0.1.11
+# Created using https://github.com/alexcrichton/cargo-vendor/ 0.1.12
 # It's so big because some of the -sys crates include the C library source they
 # want to link to.  With our -devel buildreqs in place, they'll be used instead.
 # FIXME: These should all eventually be packaged on their own!
@@ -237,6 +237,9 @@ CFG_DISABLE_CROSS_TESTS=1 %{local_cargo} test --no-fail-fast || :
 
 
 %changelog
+* Mon Sep 11 2017 Josh Stone <jistone@redhat.com> - 0.21.1-1
+- Update to 0.21.1.
+
 * Wed Sep 06 2017 Josh Stone <jistone@redhat.com> - 0.21.0-1
 - Update to 0.21.0.
 
