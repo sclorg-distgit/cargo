@@ -16,7 +16,7 @@
 %endif
 
 Name:           %{?scl_prefix}cargo
-Version:        0.20.0
+Version:        0.21.0
 Release:        1%{?dist}
 Summary:        Rust's package manager and build tool
 License:        ASL 2.0 or MIT
@@ -24,9 +24,11 @@ URL:            https://crates.io/
 ExclusiveArch:  %{rust_arches}
 
 %global cargo_version %{version}
-%global cargo_bootstrap 0.19.0
+%global cargo_bootstrap 0.20.0
 
 Source0:        https://github.com/rust-lang/%{pkg_name}/archive/%{cargo_version}/%{pkg_name}-%{cargo_version}.tar.gz
+
+Patch1:         cargo-0.21.0-libc-0.2.26-s390x.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -56,7 +58,7 @@ end}
   local target_arch = rpm.expand("%{_target_cpu}")
   for i, arch in ipairs(bootstrap_arches) do
     i = i + 10
-    print(string.format("Source%d: %s-%s.tar.gz\n",
+    print(string.format("Source%d: %s-%s.tar.xz\n",
                         i, base, rust_triple(arch)))
     if arch == target_arch then
       rpm.define("bootstrap_source "..i)
@@ -66,7 +68,7 @@ end}
 %endif
 
 # Use vendored crate dependencies so we can build offline.
-# Created using https://github.com/alexcrichton/cargo-vendor/ 0.1.7
+# Created using https://github.com/alexcrichton/cargo-vendor/ 0.1.11
 # It's so big because some of the -sys crates include the C library source they
 # want to link to.  With our -devel buildreqs in place, they'll be used instead.
 # FIXME: These should all eventually be packaged on their own!
@@ -130,6 +132,8 @@ test -f '%{local_cargo}'
 
 # vendored crates
 %setup -q -n %{pkg_name}-%{cargo_version} -T -D -a 100
+
+%patch1 -p1 -b .libc-s390x
 
 # define the offline registry
 %global cargo_home $PWD/.cargo
@@ -233,6 +237,9 @@ CFG_DISABLE_CROSS_TESTS=1 %{local_cargo} test --no-fail-fast || :
 
 
 %changelog
+* Wed Sep 06 2017 Josh Stone <jistone@redhat.com> - 0.21.0-1
+- Update to 0.21.0.
+
 * Mon Jul 24 2017 Josh Stone <jistone@redhat.com> - 0.20.0-1
 - Update to 0.20.0.
 - Add a cargo-doc subpackage.
