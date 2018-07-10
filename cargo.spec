@@ -1,6 +1,5 @@
 %if %defined scl
 %scl_package cargo
-%global scl_source set +ex; . scl_source enable %scl || exit $?; set -ex
 %else
 %global pkg_name cargo
 %endif
@@ -20,7 +19,7 @@
 %endif
 
 Name:           %{?scl_prefix}cargo
-Version:        0.23.0
+Version:        0.26.0
 Release:        1%{?dist}
 Summary:        Rust's package manager and build tool
 License:        ASL 2.0 or MIT
@@ -28,11 +27,9 @@ URL:            https://crates.io/
 ExclusiveArch:  %{rust_arches}
 
 %global cargo_version %{version}
-%global cargo_bootstrap 0.22.0
+%global cargo_bootstrap 0.25.0
 
 Source0:        https://github.com/rust-lang/%{pkg_name}/archive/%{cargo_version}/%{pkg_name}-%{cargo_version}.tar.gz
-
-Patch1:         cargo-0.23.0-disable-mdbook.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -101,7 +98,7 @@ BuildRequires:  zlib-devel
 BuildRequires:  pkgconfig
 
 %if %with bundled_libgit2
-Provides:       bundled(libgit2) = 0.25.0
+Provides:       bundled(libgit2) = 0.26.0
 %else
 BuildRequires:  libgit2-devel >= 0.24
 %endif
@@ -120,6 +117,10 @@ and ensure that you'll always get a repeatable build.
 Summary:        Documentation for Cargo
 BuildArch:      noarch
 
+# Cargo no longer builds its own documentation
+# https://github.com/rust-lang/cargo/pull/4904
+Requires:       %{?scl_prefix}rust-doc
+
 %description doc
 This package includes HTML documentation for Cargo.
 
@@ -137,8 +138,6 @@ test -f '%{local_cargo}'
 # vendored crates
 %setup -q -n %{pkg_name}-%{cargo_version} -T -D -a 100
 
-%autopatch -p1
-
 # define the offline registry
 %global cargo_home $PWD/.cargo
 mkdir -p %{cargo_home}
@@ -155,6 +154,8 @@ EOF
 # Enable optimization, debuginfo, and link hardening.
 %global rustflags -Copt-level=3 -Cdebuginfo=2 -Clink-arg=-Wl,-z,relro,-z,now
 
+%{?enable_rusttoolset7}
+
 %build
 
 %if %without bundled_libgit2
@@ -165,7 +166,6 @@ export LIBGIT2_SYS_USE_PKG_CONFIG=1
 # use our offline registry and custom rustc flags
 export CARGO_HOME="%{cargo_home}"
 export RUSTFLAGS="%{rustflags}"
-%{?scl_source}
 
 # cargo no longer uses a configure script, but we still want to use
 # CFLAGS in case of the odd C file in vendored dependencies.
@@ -174,13 +174,11 @@ export RUSTFLAGS="%{rustflags}"
 %{?__global_ldflags:export LDFLAGS="%{__global_ldflags}"}
 
 %{local_cargo} build --release
-sh src/ci/dox.sh
 
 
 %install
 export CARGO_HOME="%{cargo_home}"
 export RUSTFLAGS="%{rustflags}"
-%{?scl_source}
 
 %{local_cargo} install --root %{buildroot}%{_prefix}
 rm %{buildroot}%{_prefix}/.crates.toml
@@ -198,14 +196,32 @@ mkdir -p %{buildroot}%{_mandir}/man1
 # Create the path for crate-devel packages
 mkdir -p %{buildroot}%{_datadir}/cargo/registry
 
-mkdir -p %{buildroot}%{_docdir}/cargo
-cp -a target/doc %{buildroot}%{_docdir}/cargo/html
+# Cargo no longer builds its own documentation
+# https://github.com/rust-lang/cargo/pull/4904
+mkdir -p %{buildroot}%{_docdir}/cargo/html
+cat <<EOF > %{buildroot}%{_docdir}/cargo/html/index.html
+<!DOCTYPE HTML>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="0; url=../../rust/html/cargo/index.html">
+    <script type="text/javascript">
+      window.location.href = "../../rust/html/cargo/index.html"
+    </script>
+    <title>cargo-doc redirection</title>
+  </head>
+  <body>
+    Cargo documentation has been moved to the rust-doc package.
+    If you are not redirected automatically, please follow this
+    <a href="../../rust/html/cargo/index.html">link</a>.
+  </body>
+</html>
+EOF
 
 
 %check
 export CARGO_HOME="%{cargo_home}"
 export RUSTFLAGS="%{rustflags}"
-%{?scl_source}
 
 # some tests are known to fail exact output due to libgit2 differences
 CFG_DISABLE_CROSS_TESTS=1 %{local_cargo} test --no-fail-fast || :
@@ -226,6 +242,15 @@ CFG_DISABLE_CROSS_TESTS=1 %{local_cargo} test --no-fail-fast || :
 
 
 %changelog
+* Tue Apr 03 2018 Josh Stone <jistone@redhat.com> - 0.26.0-1
+- Update to 0.26.0.
+
+* Thu Feb 22 2018 Josh Stone <jistone@redhat.com> - 0.25.0-1
+- Update to 0.25.0.
+
+* Tue Jan 16 2018 Josh Stone <jistone@redhat.com> - 0.24.0-1
+- Update to 0.24.0.
+
 * Wed Dec 13 2017 Josh Stone <jistone@redhat.com> - 0.23.0-1
 - Update to 0.23.0.
 
