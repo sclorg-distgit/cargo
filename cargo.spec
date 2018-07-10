@@ -1,5 +1,9 @@
-%{?scl:%scl_package cargo}
-%{!?scl:%global pkg_name %{name}}
+%if %defined scl
+%scl_package cargo
+%global scl_source set +ex; . scl_source enable %scl || exit $?; set -ex
+%else
+%global pkg_name cargo
+%endif
 
 # Only x86_64 and i686 are Tier 1 platforms at this time.
 # https://forge.rust-lang.org/platform-support.html
@@ -16,7 +20,7 @@
 %endif
 
 Name:           %{?scl_prefix}cargo
-Version:        0.21.1
+Version:        0.23.0
 Release:        1%{?dist}
 Summary:        Rust's package manager and build tool
 License:        ASL 2.0 or MIT
@@ -24,11 +28,11 @@ URL:            https://crates.io/
 ExclusiveArch:  %{rust_arches}
 
 %global cargo_version %{version}
-%global cargo_bootstrap 0.20.0
+%global cargo_bootstrap 0.22.0
 
 Source0:        https://github.com/rust-lang/%{pkg_name}/archive/%{cargo_version}/%{pkg_name}-%{cargo_version}.tar.gz
 
-Patch1:         cargo-0.21.1-libc-0.2.26-s390x.patch
+Patch1:         cargo-0.23.0-disable-mdbook.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -68,7 +72,7 @@ end}
 %endif
 
 # Use vendored crate dependencies so we can build offline.
-# Created using https://github.com/alexcrichton/cargo-vendor/ 0.1.12
+# Created using https://github.com/alexcrichton/cargo-vendor/ 0.1.13
 # It's so big because some of the -sys crates include the C library source they
 # want to link to.  With our -devel buildreqs in place, they'll be used instead.
 # FIXME: These should all eventually be packaged on their own!
@@ -133,7 +137,7 @@ test -f '%{local_cargo}'
 # vendored crates
 %setup -q -n %{pkg_name}-%{cargo_version} -T -D -a 100
 
-%patch1 -p1 -b .libc-s390x
+%autopatch -p1
 
 # define the offline registry
 %global cargo_home $PWD/.cargo
@@ -161,10 +165,7 @@ export LIBGIT2_SYS_USE_PKG_CONFIG=1
 # use our offline registry and custom rustc flags
 export CARGO_HOME="%{cargo_home}"
 export RUSTFLAGS="%{rustflags}"
-
-%{?scl:scl enable %scl - << \EOF}
-set -ex
-ulimit -s 65536 # stack guard, rust#43052
+%{?scl_source}
 
 # cargo no longer uses a configure script, but we still want to use
 # CFLAGS in case of the odd C file in vendored dependencies.
@@ -175,21 +176,14 @@ ulimit -s 65536 # stack guard, rust#43052
 %{local_cargo} build --release
 sh src/ci/dox.sh
 
-%{?scl:EOF}
-
 
 %install
 export CARGO_HOME="%{cargo_home}"
 export RUSTFLAGS="%{rustflags}"
-
-%{?scl:scl enable %scl - << \EOF}
-set -ex
-ulimit -s 65536 # stack guard, rust#43052
+%{?scl_source}
 
 %{local_cargo} install --root %{buildroot}%{_prefix}
 rm %{buildroot}%{_prefix}/.crates.toml
-
-%{?scl:EOF}
 
 mkdir -p %{buildroot}%{_mandir}/man1
 %{__install} -p -m644 src/etc/man/cargo*.1 \
@@ -211,15 +205,10 @@ cp -a target/doc %{buildroot}%{_docdir}/cargo/html
 %check
 export CARGO_HOME="%{cargo_home}"
 export RUSTFLAGS="%{rustflags}"
-
-%{?scl:scl enable %scl - << \EOF}
-set -ex
-ulimit -s 65536 # stack guard, rust#43052
+%{?scl_source}
 
 # some tests are known to fail exact output due to libgit2 differences
 CFG_DISABLE_CROSS_TESTS=1 %{local_cargo} test --no-fail-fast || :
-
-%{?scl:EOF}
 
 
 %files
@@ -237,6 +226,12 @@ CFG_DISABLE_CROSS_TESTS=1 %{local_cargo} test --no-fail-fast || :
 
 
 %changelog
+* Wed Dec 13 2017 Josh Stone <jistone@redhat.com> - 0.23.0-1
+- Update to 0.23.0.
+
+* Tue Dec 12 2017 Josh Stone <jistone@redhat.com> - 0.22.0-1
+- Update to 0.22.0.
+
 * Mon Sep 11 2017 Josh Stone <jistone@redhat.com> - 0.21.1-1
 - Update to 0.21.1.
 

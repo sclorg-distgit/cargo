@@ -1,0 +1,13 @@
+diff --git a/src/ci/dox.sh b/src/ci/dox.sh
+index 7dffde265bc9..1300e35e22ea 100644
+--- a/src/ci/dox.sh
++++ b/src/ci/dox.sh
+@@ -26,8 +26,3 @@ for doc in $DOCS; do
+     -o target/doc \
+     src/doc/$doc.md
+ done
+-
+-# Temporary preview for mdBook docs
+-cd src/doc/book
+-$HOME/.cargo/bin/mdbook build --no-create --dest-dir ../../../target/doc/book
+-cd ../../../
